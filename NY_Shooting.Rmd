@@ -1,0 +1,259 @@
+---
+title: "NY Shooting Incidents"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Analysis of the NYPD Shooting Data Incident Dataset
+This report analyses the trend of the Shooting incidents recorded by NYPD with various variables such as constituency, place of occurrence, time of day, year, location of occurrence and age group of victims and perpetrators.Finally we build a model to predict the number of shooting incidents given the time(in hour) of the day between 08:00 and 23:00. As this is a HTML document, please copy the contents of the code cells into R-Studio to reproduce the results.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Import the tidyverse package for working with dataframes
+```{r}
+library(tidyverse)
+```
+
+### Importing the NYPD Shooting Incident Data (Historic) from its source declared as url_in
+```{r}
+url_in <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+nypd_data <- read_csv(url_in)
+```
+
+### Summary of the Shooting Data
+```{r}
+summary(nypd_data)
+```
+
+### Cleaning up the data
+1. convert Date of Occurrence from character type to Date type
+```{r}
+nypd_data <- nypd_data %>% mutate(OCCUR_DATE=mdy(OCCUR_DATE))
+```
+
+2. convert Borough(Constituency) to a factor type.
+```{r}
+nypd_data <- nypd_data %>% mutate(BORO=as_factor(BORO))
+```
+
+3. convert location of occurrence to a factor type with missing entries filled as "UNKNOWN"
+```{r}
+nypd_data <- nypd_data %>% replace_na(list(LOC_OF_OCCUR_DESC="UNKNOWN"))
+nypd_data <- nypd_data %>% mutate(LOC_OF_OCCUR_DESC=as_factor(LOC_OF_OCCUR_DESC))
+```
+
+4. convert missing entries in Jurisdiction Code to "-1"
+```{r}
+nypd_data <- nypd_data %>% replace_na(list(JURISDICTION_CODE=-1))
+```
+
+5. convert location classification to a factor type with missing entries filled as "UNKNOWN"
+```{r}
+nypd_data <- nypd_data %>% replace_na(list(LOC_CLASSFCTN_DESC="UNKNOWN"))
+nypd_data <- nypd_data %>% mutate(LOC_CLASSFCTN_DESC=as_factor(LOC_CLASSFCTN_DESC))
+```
+
+6. convert location description to a factor type with missing entries and "(null)" filled as "UNKNOWN"
+```{r}
+nypd_data <- nypd_data %>% replace_na(list(LOCATION_DESC="UNKNOWN"))
+nypd_data <- nypd_data %>% mutate(LOCATION_DESC=case_when(LOCATION_DESC == "(null)" ~ "UNKNOWN",
+                                                          .default = as.character(LOCATION_DESC)))
+nypd_data <- nypd_data %>% mutate(LOCATION_DESC=as_factor(LOCATION_DESC))
+```
+
+7. convert perpetrator age group to a factor type with missing entries and "(null)" filled as "UNKNOWN".
+```{r}
+nypd_data <- nypd_data %>% replace_na(list(PERP_AGE_GROUP="UNKNOWN"))
+nypd_data <- nypd_data %>% mutate(PERP_AGE_GROUP=case_when(PERP_AGE_GROUP == "(null)" ~ "UNKNOWN",
+                                                           .default = as.character(PERP_AGE_GROUP)))
+nypd_data <- nypd_data %>% mutate(PERP_AGE_GROUP=as_factor(PERP_AGE_GROUP))
+```
+
+8. convert perpetrator sex to a factor type with missing entries and "(null)" filled as "UNKNOWN"
+```{r}
+nypd_data <- nypd_data %>% replace_na(list(PERP_SEX="UNKNOWN"))
+nypd_data <- nypd_data %>% mutate(PERP_SEX=case_when(PERP_SEX == "(null)" ~ "UNKNOWN",
+                                                     .default = as.character(PERP_SEX)))
+nypd_data <- nypd_data %>% mutate(PERP_SEX=as_factor(PERP_SEX))
+```
+
+9. convert perpetrator race to a factor type with missing entries and "(null)" filled as "UNKNOWN"
+```{r}
+nypd_data <- nypd_data %>% replace_na(list(PERP_RACE="UNKNOWN"))
+nypd_data <- nypd_data %>% mutate(PERP_RACE=case_when(PERP_RACE == "(null)" ~ "UNKNOWN",
+                                                      .default = as.character(PERP_RACE)))
+nypd_data <- nypd_data %>% mutate(PERP_RACE=as_factor(PERP_RACE))
+```
+
+10. convert victim age group to a factor type with missing entries and "(null)" filled as "UNKNOWN".
+```{r}
+nypd_data <- nypd_data %>% replace_na(list(VIC_AGE_GROUP="UNKNOWN"))
+nypd_data <- nypd_data %>% mutate(VIC_AGE_GROUP=case_when(VIC_AGE_GROUP == "(null)" ~ "UNKNOWN",
+                                                           .default = as.character(VIC_AGE_GROUP)))
+nypd_data <- nypd_data %>% mutate(VIC_AGE_GROUP=as_factor(VIC_AGE_GROUP))
+```
+
+11. convert victim sex to a factor type with missing entries and "(null)" filled as "UNKNOWN"
+```{r}
+nypd_data <- nypd_data %>% replace_na(list(VIC_SEX="UNKNOWN"))
+nypd_data <- nypd_data %>% mutate(VIC_SEX=case_when(VIC_SEX == "(null)" ~ "UNKNOWN",
+                                                     .default = as.character(VIC_SEX)))
+nypd_data <- nypd_data %>% mutate(VIC_SEX=as_factor(VIC_SEX))
+```
+
+12. convert victim race to a factor type with missing entries and "(null)" filled as "UNKNOWN"
+```{r}
+nypd_data <- nypd_data %>% replace_na(list(VIC_RACE="UNKNOWN"))
+nypd_data <- nypd_data %>% mutate(VIC_RACE=case_when(VIC_RACE == "(null)" ~ "UNKNOWN",
+                                                     .default = as.character(VIC_RACE)))
+nypd_data <- nypd_data %>% mutate(VIC_RACE=as_factor(VIC_RACE))
+```
+
+### Remove unwanted columns
+```{r}
+nypd_data <- nypd_data %>% select(OCCUR_DATE, OCCUR_TIME, BORO, LOC_OF_OCCUR_DESC, LOC_CLASSFCTN_DESC, LOCATION_DESC, PERP_AGE_GROUP, PERP_SEX, PERP_RACE, VIC_AGE_GROUP, VIC_SEX, VIC_RACE)
+```
+
+### Summary of the Shooting Data after cleaning and removing unwanted columns
+```{r}
+summary(nypd_data)
+```
+
+### Visualizing shooting incidents by constituency
+```{r}
+shooting_by_boro <- nypd_data %>%
+  mutate(case = 1) %>%
+  group_by(BORO) %>%
+  summarize(cases = sum(case)) %>%
+  ungroup()
+
+shooting_by_boro %>%
+  ggplot(aes(x = BORO, y=cases, group = 1)) +
+  geom_bar(colour = "blue4", fill = "blue4", stat = "identity") +
+  labs(title = "NYPD Shooting Cases by Constituency")
+```
+
+**Analysis**: Brooklyn and Bronx seem to be the most unsafe. 
+
+### Visualizing shooting incidents by location_description
+```{r}
+shooting_by_loc_desc <- nypd_data %>%
+  mutate(case = 1) %>%
+  group_by(LOCATION_DESC) %>%
+  summarize(cases = sum(case)) %>%
+  ungroup()
+
+shooting_by_loc_desc %>%
+  ggplot(aes(x = LOCATION_DESC, y=cases, group = 1)) +
+  geom_bar(colour = "blue4", fill = "blue4", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  labs(title = "NYPD Shooting Cases by Location Description")
+```
+
+**Analysis**: Are multi-dwell houses and apartments really the most unsafe areas? UNKNOWNS seem to be larger.
+
+### Visualizing shooting incidents by year
+```{r}
+shooting_by_year <- nypd_data %>%
+  mutate(occur_year = year(OCCUR_DATE), case =1) %>%
+  group_by(occur_year) %>%
+  summarize(cases = sum(case)) %>%
+  ungroup()
+
+shooting_by_year %>%
+  ggplot(aes(x = occur_year, y=cases, group = 1)) +
+  geom_bar(colour = "blue4", fill = "blue4", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_x_continuous(breaks = seq(2005, 2025, by=1))+
+  labs(title = "NYPD Shooting Cases by Year")
+```
+
+**Analysis**: There was a sudden increase in the incidents in 2020. What was the reason? COVID?
+
+
+### Visualizing shooting incidents by time of the day
+```{r}
+shooting_by_time <- nypd_data %>%
+  mutate(occur_hour = hour(OCCUR_TIME), case =1) %>%
+  group_by(occur_hour) %>%
+  summarize(cases = sum(case)) %>%
+  ungroup()
+
+shooting_by_time %>%
+  ggplot(aes(x = occur_hour, y=cases, group = 1)) +
+  geom_bar(colour = "blue4", fill = "blue4", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_x_continuous(breaks = seq(0, 23, by=1)) +
+  labs(title = "NYPD Shooting Cases by Hour in a Day")
+```
+
+**Analysis**: Shows that crimes at night are higher than during the day.
+
+### Visualizing shooting incidents by perpetrator age group
+```{r}
+shooting_by_perp_age <- nypd_data %>%
+  mutate(case = 1) %>%
+  group_by(PERP_AGE_GROUP) %>%
+  summarize(cases = sum(case)) %>%
+  ungroup()
+
+shooting_by_perp_age %>%
+  ggplot(aes(x = PERP_AGE_GROUP, y=cases, group = 1)) +
+  geom_bar(colour = "blue4", fill = "blue4", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  labs(title = "NYPD Shooting Cases by Perpetrator Age Group")
+```
+
+**Analysis**: People aged 18-44 are more prone to criminal activities than older or younger people. More clarification is required on the age groups that appear as numbers like 1022, 1028. Since the number of unknowns is relatively large it may need more clarification.
+
+### Visualizing shooting incidents by victim age group
+```{r}
+shooting_by_vic_age <- nypd_data %>%
+  mutate(case = 1) %>%
+  group_by(VIC_AGE_GROUP) %>%
+  summarize(cases = sum(case)) %>%
+  ungroup()
+
+shooting_by_vic_age %>%
+  ggplot(aes(x = VIC_AGE_GROUP, y=cases, group = 1)) +
+  geom_bar(colour = "blue4", fill = "blue4", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  labs(title = "NYPD Shooting Cases by Victim Age Group")
+```
+
+**Analysis**: Again people aged 18-44 are more prone to be victims of criminal activities than older or younger people. More clarification is required on the age groups that appear as numbers like 1022, 1028. Since the number of unknowns is relatively small it may be ignored.
+
+### Modelling a prediction of the number of crimes during the hours 8:00 to 23:00
+```{r}
+shooting_8_to_23 <- shooting_by_time %>% filter(occur_hour >= 8)
+mod <- lm(cases ~ occur_hour, data = shooting_8_to_23)
+```
+
+Parameters and accuracy measurements of the model:
+```{r}
+summary(mod)
+```
+
+Visualizing the predictions of the model:
+```{r}
+shooting_by_time_pred <- shooting_8_to_23 %>% mutate(pred = predict(mod)) 
+shooting_by_time_pred %>% ggplot() +
+  geom_point(aes(x = occur_hour, y = cases), color = "blue") +
+  geom_point(aes(x = occur_hour, y = pred), color = "red")
+```
+
+**Analysis**: Model tends to predict the number of crimes given the hour of the day between 08:00 and 23:00 very well.
+
+### Conclusion
+1. Brooklyn in the constituency with the highest number of shooting incidents at least according to the data. However it is not clear if the data is exhaustive and covers all incidents in other Boroughs as well. There may be places where crimes are reported more often than others.
+2. People in Multi-Dwelling apartments and houses have a high risk of shooting crimes compared to other places. There may be a personal bias in this analysis as there tends to be a big gathering of people in such places who know each other and may have conflicting relationships. The UNKNOWN category is quite large in comparison. Hence more verification of the data is required. 
+3. People of age 18-44 commit and are victims of most of the shooting incidents. However the large amount of unknown age groups of perpetrators may change the results if more clarification is achieved.
+4. Crimes at night times are higher compared to day time.
+5. There was a sudden increase in the incidents in the year 2020. A possible explanation could be the excessive restrictions
+implemented during Covid-19 breakout that affected mental health of many. However this could just be my personal bias as that
+was the most famous incident of that year. More analysis of the data, such as source of the data, sampling of the data, related variables need to be analysed to prevent this bias.
+6. From the summary of the data we see that males are more prone to commit and be victim of shooting than the other genders.
